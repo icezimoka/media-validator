@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import openpyxl
 import io
+import hmac
 from config import SCHEMAS
 from validator import validate
 
@@ -12,6 +13,33 @@ st.set_page_config(
     page_icon="📊",
     layout="centered"
 )
+
+# ── Password Gate ──────────────────────────
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if not st.session_state.authenticated:
+        st.title("🔐 Media Data Validator")
+        st.subheader("กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน")
+        st.divider()
+
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="กรอกรหัสผ่าน..."
+        )
+
+        if st.button("เข้าสู่ระบบ", type="primary"):
+            if hmac.compare_digest(password, st.secrets["APP_PASSWORD"]):
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่")
+
+        st.stop()   # ✅ หยุดเฉพาะตอนยังไม่ login
+
+check_password()
 
 # ── Header ────────────────────────────────────
 st.title("📊 Media Data Validator")
