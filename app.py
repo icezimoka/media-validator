@@ -4,6 +4,7 @@ import pandas as pd
 import openpyxl
 import io
 import hmac
+import os
 from config import SCHEMAS
 from validator import validate
 
@@ -31,7 +32,9 @@ def check_password():
         )
 
         if st.button("เข้าสู่ระบบ", type="primary"):
-            if hmac.compare_digest(password, st.secrets["APP_PASSWORD"]):
+            # ✅ อ่านจาก Environment Variable
+            correct_password = os.environ.get("APP_PASSWORD", "")
+            if hmac.compare_digest(password, correct_password):
                 st.session_state.authenticated = True
                 st.rerun()
             else:
@@ -107,8 +110,17 @@ if uploaded:
         if uploaded.name.endswith(".csv"):
             df = pd.read_csv(io.BytesIO(file_bytes))
         else:
-            wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
-            ws = wb.active
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes),data_only=True)
+
+            ws = None
+            if wb.active is not None:
+               ws = wb.active
+            elif wb.worksheets:
+               ws = wb.worksheets[0]
+            
+            if ws is None:
+                raise ValueError("No sheet found")
+
             data = list(ws.values)
             wb.close()
 
@@ -133,9 +145,17 @@ if uploaded:
                  ) else x
             )
 
-    except Exception as e:
-        st.error(f"❌ ไม่สามารถเปิดไฟล์ได้: {e}")
-        st.stop()
+    except Exception:
+        try:
+            df = pd.read_excel(io.BytesIO(file_bytes),engine="openpyxl")
+            df=df.map(
+                lambda x: None if (
+                    x is None or (isinstance(x,str) and x.strip() == "")
+                 ) else x )
+            
+        except Exception as e2:
+            st.error(f"❌ ไม่สามารถเปิดไฟล์ได้: {e2}")
+            st.stop()
 
     st.success(
         f"✅ โหลดไฟล์สำเร็จ : "
